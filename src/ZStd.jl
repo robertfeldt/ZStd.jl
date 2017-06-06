@@ -83,6 +83,21 @@ function compress(src::AbstractString, compressionlevel::Int = 1)
     resize!(dest, compressedsize)
 end
 
-export compress
+const DestCapacity = 1000
+const Dest = Array{UInt8}(DestCapacity)
+
+function compressed_len(src::AbstractString, compressionlevel::Int = 1)
+    global Dest, DestCapacity
+    compressionlevel = clamp(compressionlevel, 1, MAX_COMPRESSION)
+    dstCapacity = 1 + maxcompressedsize(sizeof(src))
+    if dstCapacity > DestCapacity
+        DestCapacity = dstCapacity
+        Dest = Array{UInt8}(DestCapacity)
+    end
+    csz = zstd_compress(Dest, DestCapacity, pointer(src), sizeof(src), compressionlevel)
+    return convert(Int, csz)
+end
+
+export compress, compressed_len
 
 end # module
