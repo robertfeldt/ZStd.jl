@@ -59,4 +59,30 @@ const ZSTD_VERSION = let
     VersionNumber(str)
 end
 
+# Simple API
+zstd_compress(dst, dstCapacity, src, srcSize, compressionLevel) =
+    ccall((:ZSTD_compress, libzstd), Csize_t, 
+        (Ptr{Void}, Csize_t,     Ptr{Void}, Csize_t, Cint),
+        dst,        dstCapacity, src,       srcSize, compressionLevel)
+
+zstd_decompress(dst, dstCapacity, src, compressedSize) =
+    ccall((:ZSTD_decompress, libzstd), Csize_t, 
+        (Ptr{Void}, Csize_t,     Ptr{Void}, Csize_t),
+        dst,        dstCapacity, src,       compressedSize)
+
+function compress_to_buffer(src::AbstractString, compressionlevel::Int = 1)
+    compressionlevel = clamp(compressionlevel, 1, MAX_COMPRESSION)
+    dstCapacity = 1 + maxcompressedsize(sizeof(src))
+    dst = Array{UInt8}(dstCapacity)
+    compressedSize = zstd_compress(dst, dstCapacity, pointer(src), sizeof(src), compressionlevel)
+    return convert(Int, compressedSize), dst
+end
+
+function compress(src::AbstractString, compressionlevel::Int = 1)
+    compressedsize, dest = compress_to_buffer(src, compressionlevel)
+    resize!(dest, compressedsize)
+end
+
+export compress
+
 end # module
