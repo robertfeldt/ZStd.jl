@@ -83,18 +83,25 @@ function compress(src::AbstractString, compressionlevel::Int = 1)
     resize!(dest, compressedsize)
 end
 
-const DestCapacity = 1000
-const Dest = Array{UInt8}(DestCapacity)
+type DestBuffer
+    capacity::Int
+    dest::Array{UInt8}
+    DestBuffer(c::Int) = new(c, Array{UInt8}(c))
+end
+function resize!(db::DestBuffer, newsize::Int)
+    db.capacity = newsize
+    db.dest = Array{UInt8}(newsize)
+end
+expand_if_needed!(db::DestBuffer, reqsize::Int) = (reqsize > db.capacity) ? resize!(db, reqsize) : nothing
+
+const DefaultBuffer = DestBuffer(1000)
 
 function compressed_len(src::AbstractString, compressionlevel::Int = 1)
-    global Dest, DestCapacity
+    global DefaultBuffer
     compressionlevel = clamp(compressionlevel, 1, MAX_COMPRESSION)
     dstCapacity = 1 + maxcompressedsize(sizeof(src))
-    if dstCapacity > DestCapacity
-        DestCapacity = dstCapacity
-        Dest = Array{UInt8}(DestCapacity)
-    end
-    csz = zstd_compress(Dest, DestCapacity, pointer(src), sizeof(src), compressionlevel)
+    expand_if_needed!(DefaultBuffer, dstCapacity)
+    csz = zstd_compress(DefaultBuffer.dest, DefaultBuffer.capacity, pointer(src), sizeof(src), compressionlevel)
     return convert(Int, csz)
 end
 
